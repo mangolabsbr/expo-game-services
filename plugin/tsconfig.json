@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["es2020"],
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "sourceMap": false,
+    "composite": true,
+    "tsBuildInfoFile": "./build/tsconfig.tsbuildinfo",
+    "rootDir": "./src",
+    "outDir": "./build"
+  },
+  "include": ["./src"]
+}

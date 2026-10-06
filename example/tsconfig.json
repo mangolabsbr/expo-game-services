@@ -3,8 +3,8 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "expo-game-services": ["../src/index"],
-      "expo-game-services/*": ["../src/*"]
+      "@mangolabs/expo-game-services": ["../src/index"],
+      "@mangolabs/expo-game-services/*": ["../src/*"]
     }
   }
 }

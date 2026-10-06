@@ -4,23 +4,20 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
-// npm v7+ will install ../node_modules/react and ../node_modules/react-native because of peerDependencies.
-// To prevent the incompatible react-native between ./node_modules/react-native and ../node_modules/react-native,
-// excludes the one from the parent folder when bundling.
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// The module source in `../src` must resolve `expo`, `react` and `react-native`
+// from this app, never from the package's own node_modules (its dev tooling),
+// or two copies of expo-modules-core would be loaded at runtime.
 config.resolver.blockList = [
   ...Array.from(config.resolver.blockList ?? []),
-  // On windows the path will resolve with `\`. We need to escape it with `\\` for the RegExp.
-  new RegExp(path.resolve('..', 'node_modules', 'react').replace(/\\/g, '\\\\')),
-  new RegExp(path.resolve('..', 'node_modules', 'react-native').replace(/\\/g, '\\\\')),
+  new RegExp(`^${escapeRegExp(path.resolve(__dirname, '..', 'node_modules'))}/.*`),
 ];
 
-config.resolver.nodeModulesPaths = [
-  path.resolve(__dirname, './node_modules'),
-  path.resolve(__dirname, '../node_modules'),
-];
+config.resolver.nodeModulesPaths = [path.resolve(__dirname, './node_modules')];
 
 config.resolver.extraNodeModules = {
-  'expo-game-services': '..',
+  '@mangolabs/expo-game-services': '..',
 };
 
 config.watchFolders = [path.resolve(__dirname, '..')];
