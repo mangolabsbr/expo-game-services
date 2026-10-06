@@ -4,6 +4,11 @@ import GameKit
 public class ExpoGameServicesModule: Module {
   private var authObserver: NSObjectProtocol?
   private let presenter = GameCenterPresenter()
+  /** Sign-in promises waiting for the authenticate handler's outcome. */
+  private var pendingSignIns: [Promise] = []
+  /** Whether the authenticate handler has delivered an outcome this launch. */
+  private var authAttempted = false
+  private var lastAuthError: Error?
 
   public func definition() -> ModuleDefinition {
     Name("ExpoGameServices")
@@ -40,27 +45,16 @@ public class ExpoGameServicesModule: Module {
         promise.resolve(Self.authState())
         return
       }
-
-      // GameKit may call the handler several times: once with a view
-      // controller to present, then again with the outcome. Settle the
-      // promise on the first call that carries an outcome.
-      var settled = false
-      player.authenticateHandler = { [weak self] viewController, error in
-        if let viewController {
-          guard let current = self?.appContext?.utilities?.currentViewController() else {
-            if !settled {
-              settled = true
-              promise.reject(NoViewControllerException())
-            }
-            return
-          }
-          current.present(viewController, animated: true)
-          return
-        }
-        if settled { return }
-        settled = true
-        promise.resolve(Self.authState(error: error))
+      // GameKit runs the handler once per launch: after a failure (for
+      // example the user dismissed the sign-in sheet) it does not prompt
+      // again until the app restarts, so later attempts get the last outcome
+      // instead of waiting for a callback that never comes.
+      if self.authAttempted {
+        promise.resolve(Self.authState(error: self.lastAuthError))
+        return
       }
+      self.pendingSignIns.append(promise)
+      self.installAuthenticateHandler()
     }.runOnQueue(.main)
 
     AsyncFunction("getPlayer") { () -> [String: Any?]? in
@@ -114,6 +108,38 @@ public class ExpoGameServicesModule: Module {
     AsyncFunction("showAchievements") { (promise: Promise) in
       self.present(GKGameCenterViewController(state: .achievements), promise: promise)
     }.runOnQueue(.main)
+  }
+
+  /**
+   Sets the authenticate handler once. GameKit calls it with a view controller
+   to present when the player needs to sign in, then with the outcome; it is
+   called again whenever the authentication state changes later on.
+   */
+  private func installAuthenticateHandler() {
+    let player = GKLocalPlayer.local
+    guard player.authenticateHandler == nil else { return }
+
+    player.authenticateHandler = { [weak self] viewController, error in
+      guard let self else { return }
+      if let viewController {
+        if let current = self.appContext?.utilities?.currentViewController() {
+          current.present(viewController, animated: true)
+          return
+        }
+        self.settleSignIns(error: NoViewControllerException())
+        return
+      }
+      self.settleSignIns(error: error)
+    }
+  }
+
+  private func settleSignIns(error: Error?) {
+    authAttempted = true
+    lastAuthError = GKLocalPlayer.local.isAuthenticated ? nil : error
+    let state = Self.authState(error: lastAuthError)
+    let pending = pendingSignIns
+    pendingSignIns = []
+    pending.forEach { $0.resolve(state) }
   }
 
   private func present(_ viewController: GKGameCenterViewController, promise: Promise) {
