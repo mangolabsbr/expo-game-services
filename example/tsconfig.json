@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "expo-game-services": ["../src/index"],
+      "expo-game-services/*": ["../src/*"]
+    }
+  }
+}
